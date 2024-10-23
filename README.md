@@ -1,6 +1,6 @@
 
 
-# Reproduce Code for Paper "ML-Leaks: Model and Data Independent Membership Inference Attacks and Defenses on Machine Learning Models" 
+# Reproduced Code for Paper "ML-Leaks: Model and Data Independent Membership Inference Attacks and Defenses on Machine Learning Models" 
 Only for Adversary 1
 
 ![alt text](https://cdn-fusion.imgcdn.store/i/2024/2106384aa5ba04ed.jpeg)
