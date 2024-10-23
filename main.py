@@ -37,7 +37,6 @@ def train_target_model(train_loader, model, criterion, optimizer, num_epochs):
             optimizer.zero_grad()
             outputs = model(inputs)
             print(f'Inputs shape: {inputs.shape}, Targets shape: {targets.shape}, Outputs shape: {outputs.shape}')
-            # _, outputs = torch.max(outputs.data, 1)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
