@@ -24,20 +24,25 @@ def load_data(dataset_name, batch_size):
         train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
         test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
     
     return train_loader, test_loader
 
 def train_target_model(train_loader, model, criterion, optimizer, num_epochs):
     model.train()
     for epoch in range(num_epochs):
+        i = 0
         for inputs, targets in train_loader:
             optimizer.zero_grad()
             outputs = model(inputs)
+            print(f'Inputs shape: {inputs.shape}, Targets shape: {targets.shape}, Outputs shape: {outputs.shape}')
+            # _, outputs = torch.max(outputs.data, 1)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
+            print(f'Epoch [{epoch+1}], data [{i}], Loss: {loss.item():.4f}')
+            i += 1
         print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 
 def get_top3_probabilities(model, data_loader):
@@ -62,42 +67,49 @@ def main():
     # Step 0: Split the data into DShadow_train and DShadow_out
     if args.dataset == 'CIFAR10':
         num_classes = 10
+        is_cifar = True
         train_loader, out_loader = load_data(args.dataset, args.batch_size)
     elif args.dataset == 'MNIST':
         num_classes = 10
+        is_cifar = False
         train_loader, out_loader = load_data(args.dataset, args.batch_size)
     else:
         raise ValueError('Invalid dataset name')
 
     # Step 1: Train the Shadow model on DShadow_train
-    shadowmodel = ShadowModel(num_classes=num_classes)
+    shadowmodel = ShadowModel(num_classes=num_classes, is_cifar=is_cifar)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
     train_target_model(train_loader, shadowmodel, criterion, optimizer, args.num_epochs)
 
     # Step 2: Construct Attact datasets
     # Get the top 3 probabilities from the shadow model
+    print("11111111111")
     DShadow_train_y = get_top3_probabilities(shadowmodel, train_loader)
     DShadow_out_y = get_top3_probabilities(shadowmodel, out_loader)
 
     # Construct datasets for attack model training
     DShadow_train_y = DShadow_train_y[:, :3]  # Top 3 probabilities for DShadow_train
     DShadow_out_y = DShadow_out_y[:, :3]  # Top 3 probabilities for DShadow_out
+    print("22222222222")
 
     # Create labels and Combine the two datasets
-    DShadow_train_labels = torch.ones(DShadow_train_y.size(0))  # Label 1 for DShadow_train
-    DShadow_out_labels = torch.zeros(DShadow_out_y.size(0))  # Label 0 for DShadow_out
+    DShadow_train_labels = torch.ones(DShadow_train_y.size(0), dtype=torch.long)  # Label 1 for DShadow_train
+    DShadow_out_labels = torch.zeros(DShadow_out_y.size(0), dtype=torch.long)  # Label 0 for DShadow_out
     combined_y = torch.cat((DShadow_train_y, DShadow_out_y), dim=0)
     combined_labels = torch.cat((DShadow_train_labels, DShadow_out_labels), dim=0)
+    print("333333333")
 
     # Prepare data for attack model training
-    attack_dataset = torch.utils.data.TensorDataset(combined_y, combined_labels)
+    attack_dataset = torch.utils.data.TensorDataset(combined_y, combined_labels.to(torch.long))
     attack_loader = DataLoader(attack_dataset, batch_size=args.batch_size, shuffle=True)
+    print("44444444")
 
     # Step 3: Attack Model Training on the combined dataset
     attack_model = AttackModel(input_size=combined_y.size(1))  # 128/ Assuming input_size is the number of features / attack_model = AttackModel(input_size=128)
     attack_criterion = torch.nn.CrossEntropyLoss()
     attack_optimizer = optim.Adam(attack_model.parameters(), lr=0.001)
+    print("555555555")
     train_target_model(attack_loader, attack_model, attack_criterion, attack_optimizer, args.num_epochs)
 
     # Step 4: Evaluate the attack model on the test set
