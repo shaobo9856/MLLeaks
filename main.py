@@ -44,7 +44,7 @@ def train_target_model(train_loader, model, criterion, optimizer, num_epochs):
             i += 1
         print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 
-def get_top3_probabilities(model, data_loader):
+def get_probabilities(model, data_loader):
     model.eval()
     all_probs = []
     with torch.no_grad():
@@ -84,12 +84,10 @@ def main():
     # Step 2: Construct Attact datasets
     # Get the top 3 probabilities from the shadow model
     print("11111111111")
-    DShadow_train_y = get_top3_probabilities(shadowmodel, train_loader)
-    DShadow_out_y = get_top3_probabilities(shadowmodel, out_loader)
-
-    # Construct datasets for attack model training
-    DShadow_train_y = DShadow_train_y[:, :3]  # Top 3 probabilities for DShadow_train
-    DShadow_out_y = DShadow_out_y[:, :3]  # Top 3 probabilities for DShadow_out
+    DShadow_train_y = get_probabilities(shadowmodel, train_loader)
+    DShadow_out_y = get_probabilities(shadowmodel, out_loader)
+    DShadow_train_y = DShadow_train_y[:, :3]  # get top 3 probabilities for DShadow_train
+    DShadow_out_y = DShadow_out_y[:, :3]  # get top 3 probabilities for DShadow_out
     print("22222222222")
 
     # Create labels and Combine the two datasets
@@ -99,13 +97,13 @@ def main():
     combined_labels = torch.cat((DShadow_train_labels, DShadow_out_labels), dim=0)
     print("333333333")
 
-    # Prepare data for attack model training
+    # Prepare attack dataset for attack model training
     attack_dataset = torch.utils.data.TensorDataset(combined_y, combined_labels.to(torch.long))
     attack_loader = DataLoader(attack_dataset, batch_size=args.batch_size, shuffle=True)
     print("44444444")
 
-    # Step 3: Attack Model Training on the combined dataset
-    attack_model = AttackModel(input_size=combined_y.size(1))  # 128/ Assuming input_size is the number of features / attack_model = AttackModel(input_size=128)
+    # Step 3: Attack Model Training on the combined attack dataset
+    attack_model = AttackModel(input_size=combined_y.size(1))  # 128 / Assuming input_size is the number of features
     attack_criterion = torch.nn.CrossEntropyLoss()
     attack_optimizer = optim.Adam(attack_model.parameters(), lr=0.001)
     print("555555555")
@@ -113,6 +111,7 @@ def main():
 
     # Step 4: Evaluate the attack model on the test set
     print("done")
+    
 
 if __name__ == '__main__':
     main()
