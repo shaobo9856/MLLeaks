@@ -1,0 +1,27 @@
+
+
+# MLLeaks
+Process:
+1. Shadow Model Training
+Input: DShadow dataset(DShadow_train_x, DShadow_out_x)
+Output: DShadow dataset(DShadow_train_y, DShadow_out_y)
+
+2. Attack Model Training
+Input:  DShadow_train_y, DShadow_out_y
+Output: 1(DShadow_train_y), 0(DShadow_out_y)
+
+3. Membership Inference
+Model: Attack Model
+Input: DTarget_y
+Output: 1(DTarget_y), 0(DShadow_out_y)
+
+
+
+
+​
+ 
+
+
+
+
+
