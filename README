@@ -2,19 +2,27 @@
 
 # MLLeaks
 
-DShadow: DShadow_train, DShadow_out
+python3 main.py --dataset MNIST --num_epochs 5 --batch_size 64
+python3 main.py --dataset CIFAR10 --num_epochs 5 --batch_size 100
 
+
+
+
+DShadow: DShadow_train, DShadow_out
 Process:
 0. Split DShadow dataset into DShadow_train and DShadow_out
+
 1. Shadow Model Training
 Input: DShadow dataset(DShadow_train_x)
 Output: DShadow dataset(DShadow_train_y)
+
 2. Shadow Model Testing(Obtained DShadow_train_y,DShadow_out_y ), build Attack Dataset
+
 3. Attack Model Training
 Input:  DShadow_train_y, DShadow_out_y   #(top 3 probabilities)
 Output: 1(DShadow_train_y), 0(DShadow_out_y)
 
-4. Membership Inference
+4. Membership Inference(Testing, DTarget_y, DShadow_train_y )
 Model: Attack Model
 Input: DTarget_y #(top 3 probabilities)
 Output: 1(DTarget_y), 0(out of DTarget)
