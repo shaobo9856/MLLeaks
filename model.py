@@ -34,12 +34,10 @@ class ShadowModel(nn.Module):
 class AttackModel(nn.Module):
     def __init__(self, input_size):
         super(AttackModel, self).__init__()
-        self.fc1 = nn.Linear(input_size, 64)  
-        self.fc2 = nn.Linear(64, 2)
+        self.hidden = nn.Linear(input_size, 64) 
+        self.output = nn.Linear(64, 2)
 
     def forward(self, x):
-        x = nn.functional.relu(self.fc1(x))
-        x = self.fc2(x)  # Logits output
-        return x
-
-    
+        x = nn.functional.relu(self.hidden(x))
+        x = self.output(x)  # Logits output
+        return nn.functional.softmax(x,dim=1)
