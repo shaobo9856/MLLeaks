@@ -25,7 +25,7 @@ def load_data(dataset_name, batch_size):
         test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
     # For train_dataset
-    train_size = int(0.5 * len(train_dataset))  # 80% for training
+    train_size = int(0.7 * len(train_dataset))  # 80% for training
     out_size = len(train_dataset) - train_size  # 20% for out-of-training
     train_in, train_out = torch.utils.data.random_split(train_dataset, [train_size, out_size])
 
@@ -74,18 +74,6 @@ def get_top_n_probabilities(model, data_loader, n=3):
 
     return all_probs, all_indices 
 
-
-# def get_probabilities(model, data_loader):
-#     model.eval()
-#     all_probs = []
-#     with torch.no_grad():
-#         for inputs, _ in data_loader:
-#             outputs = model(inputs)
-#             probabilities = F.softmax(outputs, dim=1)
-#             print(f'Probabilities shape: {probabilities.shape}, Values: {probabilities}')  # 打印概率
-#             all_probs.append(probabilities)
-
-#     return torch.cat(all_probs, dim=0)  # 合并所有批次的概率
 
 def main():
     parser = argparse.ArgumentParser()
@@ -145,12 +133,6 @@ def main():
 
     test_in_probs, train_in_indices = get_top_n_probabilities(target_model, test_in_loader)
     test_out_probs, train_out_indices = get_top_n_probabilities(target_model, test_out_loader)
-    # # get prob of test_in
-    # test_in_probs = get_probabilities(target_model, test_in_loader)
-    # test_in_probs = test_in_probs[:, :3]  # Get top 3 probabilities
-    # # get prob of test_out
-    # test_out_probs = get_probabilities(target_model, test_out_loader)
-    # test_out_probs = test_out_probs[:, :3]  # Get top 3 probabilities
 
     combined_probs = torch.cat((test_in_probs, test_out_probs), dim=0)
     with torch.no_grad():
