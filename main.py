@@ -24,10 +24,22 @@ def load_data(dataset_name, batch_size):
         train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
         test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
-    
-    return train_loader, test_loader
+    # For train_dataset
+    train_size = int(0.8 * len(train_dataset))  # 80% for training
+    out_size = len(train_dataset) - train_size  # 20% for out-of-training
+    train_in, train_out = torch.utils.data.random_split(train_dataset, [train_size, out_size])
+
+    # For test_dataset
+    test_size = int(0.8 * len(test_dataset))  # 80% for testing
+    test_out_size = len(test_dataset) - test_size  # 20% for out-of-testing
+    test_in, test_out = torch.utils.data.random_split(test_dataset, [test_size, test_out_size])
+
+    train_in_loader = DataLoader(train_in, batch_size=batch_size, shuffle=True, drop_last=True)
+    train_out_loader = DataLoader(train_out, batch_size=batch_size, shuffle=False, drop_last=True)
+    test_in_loader = DataLoader(test_in, batch_size=batch_size, shuffle=True, drop_last=True)
+    test_out_loader = DataLoader(test_out, batch_size=batch_size, shuffle=False, drop_last=True)
+        
+    return train_in_loader, train_out_loader,test_in_loader,test_out_loader
 
 def train_target_model(train_loader, model, criterion, optimizer, num_epochs):
     model.train()
@@ -67,11 +79,11 @@ def main():
     if args.dataset == 'CIFAR10':
         num_classes = 10
         is_cifar = True
-        train_loader, out_loader = load_data(args.dataset, args.batch_size)
+        train_in_loader, train_out_loader,test_in_loader,test_out_loader = load_data(args.dataset, args.batch_size)
     elif args.dataset == 'MNIST':
         num_classes = 10
         is_cifar = False
-        train_loader, out_loader = load_data(args.dataset, args.batch_size)
+        train_in_loader, train_out_loader,test_in_loader,test_out_loader = load_data(args.dataset, args.batch_size)
     else:
         raise ValueError('Invalid dataset name')
 
@@ -79,13 +91,13 @@ def main():
     shadowmodel = ShadowModel(num_classes=num_classes, is_cifar=is_cifar)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
-    train_target_model(train_loader, shadowmodel, criterion, optimizer, args.num_epochs)
+    train_target_model(train_in_loader, shadowmodel, criterion, optimizer, args.num_epochs)
 
     # Step 2: Construct Attact datasets
     # Get the top 3 probabilities from the shadow model
     print("11111111111")
-    DShadow_train_y = get_probabilities(shadowmodel, train_loader)
-    DShadow_out_y = get_probabilities(shadowmodel, out_loader)
+    DShadow_train_y = get_probabilities(shadowmodel, train_in_loader)
+    DShadow_out_y = get_probabilities(shadowmodel, train_out_loader)
     DShadow_train_y = DShadow_train_y[:, :3]  # get top 3 probabilities for DShadow_train
     DShadow_out_y = DShadow_out_y[:, :3]  # get top 3 probabilities for DShadow_out
     print("22222222222")
@@ -110,8 +122,39 @@ def main():
     train_target_model(attack_loader, attack_model, attack_criterion, attack_optimizer, args.num_epochs)
 
     # Step 4: Evaluate the attack model on the test set
-    print("done")
-    
+    target_model =  ShadowModel(num_classes=num_classes, is_cifar=is_cifar)
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
+    train_target_model(test_in_loader, target_model, criterion, optimizer, args.num_epochs)
+
+    # get prob of test_in  
+    test_in_probs = get_probabilities(target_model, test_in_loader)
+    test_in_probs = test_in_probs[:, :3]  # Get top 3 probabilities
+
+    # get prob of test_out
+    test_out_probs = get_probabilities(target_model, test_out_loader)
+    test_out_probs = test_out_probs[:, :3]  # Get top 3 probabilities
+
+    with torch.no_grad():
+        attack_outputs_in = attack_model(test_in_probs)
+        attack_outputs_out = attack_model(test_out_probs)
+
+        # Get the predicted labels for test_in and test_out
+        _, predicted_labels_in = torch.max(attack_outputs_in, dim=1)
+        _, predicted_labels_out = torch.max(attack_outputs_out, dim=1)
+
+    # true labels from test_in (all should be 1) and test_out (all should be 0)
+    true_labels_in = torch.ones(predicted_labels_in.size(0), dtype=torch.long) 
+    true_labels_out = torch.zeros(predicted_labels_out.size(0), dtype=torch.long)
+
+    # Combine results for accuracy calculation
+    predicted_labels = torch.cat((predicted_labels_in, predicted_labels_out))
+    true_labels = torch.cat((true_labels_in, true_labels_out))
+
+    # Calculate accuracy
+    accuracy = (predicted_labels == true_labels).float().mean().item() * 100
+    print(f'Accuracy of the attack model on the test set: {accuracy:.2f}%')
+
 
 if __name__ == '__main__':
     main()

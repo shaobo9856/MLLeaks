@@ -22,29 +22,29 @@ python3 main.py --dataset CIFAR10 --num_epochs 5 --batch_size 100
 
 
 ## Process
-Step 0. Split DShadow dataset(MNIST, CIFAR10) into DShadow_train and DShadow_out
+Step 0. Split DShadow dataset(MNIST, CIFAR10) into DShadow_train_in, DShadow_train_out, Dtarget_test_in, Dtarget_test_out
 
 Step 1. Shadow Model Training
         
-        Input: DShadow dataset(DShadow_train_x)
+        Input: DShadow dataset(DShadow_train_in_x)
 
-        Output: DShadow dataset(DShadow_train_y)
+        Output: DShadow dataset(DShadow_train_in_y)
 
-Step 2. Shadow Model Testing(Obtained DShadow_train_y,DShadow_out_y ), build Attack Dataset
+Step 2. Shadow Model Testing(Obtained DShadow_train_in_y,DShadow_train_out_y ), build Attack Dataset
 
 Step 3. Attack Model Training
 
-        Input:  DShadow_train_y, DShadow_out_y   #(top 3 probabilities)
+        Input:  DShadow_train_in_y, DShadow_train_out_y   #(top 3 probabilities)
 
-        Output: 1(DShadow_train_y), 0(DShadow_out_y)
+        Output: 1(DShadow_train_in_y), 0(DShadow_train_out_y)
 
-Step 4. Membership Inference(Testing, DTarget_y, DShadow_train_y )
+Step 4. Membership Inference(Testing, Dtarget_test_in, Dtarget_test_out )
 
         Model: Attack Model
 
-        Input: DTarget_y #(top 3 probabilities)
+        Input: Dtarget_test_in_y #(top 3 probabilities)
 
-        Output: 1(DTarget_y), 0(out of DTarget)
+        Output: 1(Dtarget_test_in), 0(Dtarget_test_out)
 
 
 
