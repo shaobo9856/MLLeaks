@@ -25,7 +25,7 @@ def load_data(dataset_name, batch_size):
         test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
     # For train_dataset
-    train_size = int(0.7 * len(train_dataset))  # 80% for training
+    train_size = int(0.5 * len(train_dataset))  # 80% for training
     out_size = len(train_dataset) - train_size  # 20% for out-of-training
     train_in, train_out = torch.utils.data.random_split(train_dataset, [train_size, out_size])
 
