@@ -30,7 +30,7 @@ def load_data(dataset_name, batch_size):
     train_in, train_out = torch.utils.data.random_split(train_dataset, [train_size, out_size])
 
     # For test_dataset
-    test_size = int(0.6 * len(test_dataset))  # 80% for testing
+    test_size = int(0.4 * len(test_dataset))  # 80% for testing
     test_out_size = len(test_dataset) - test_size  # 20% for out-of-testing
     test_in, test_out = torch.utils.data.random_split(test_dataset, [test_size, test_out_size])
 
@@ -57,17 +57,35 @@ def train_target_model(train_loader, model, criterion, optimizer, num_epochs):
             i += 1
         print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 
-def get_probabilities(model, data_loader):
+def get_top_n_probabilities(model, data_loader, n=3):
     model.eval()
     all_probs = []
+    all_indices = []
     with torch.no_grad():
         for inputs, _ in data_loader:
             outputs = model(inputs)
             probabilities = F.softmax(outputs, dim=1)
-            print(f'Probabilities shape: {probabilities.shape}, Values: {probabilities}')  # 打印概率
-            all_probs.append(probabilities)
+            top_probs, top_indices = torch.topk(probabilities, n, dim=1) # 获取概率最大的 n 个
+            all_probs.append(top_probs)
+            all_indices.append(top_indices)
 
-    return torch.cat(all_probs, dim=0)  # 合并所有批次的概率
+    all_probs = torch.cat(all_probs, dim=0)
+    all_indices = torch.cat(all_indices, dim=0)
+
+    return all_probs, all_indices 
+
+
+# def get_probabilities(model, data_loader):
+#     model.eval()
+#     all_probs = []
+#     with torch.no_grad():
+#         for inputs, _ in data_loader:
+#             outputs = model(inputs)
+#             probabilities = F.softmax(outputs, dim=1)
+#             print(f'Probabilities shape: {probabilities.shape}, Values: {probabilities}')  # 打印概率
+#             all_probs.append(probabilities)
+
+#     return torch.cat(all_probs, dim=0)  # 合并所有批次的概率
 
 def main():
     parser = argparse.ArgumentParser()
@@ -95,14 +113,10 @@ def main():
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
     train_target_model(train_in_loader, shadowmodel, criterion, optimizer, args.num_epochs)
 
-    # Step 2: Construct Attact datasets
-    # Get the top 3 probabilities from the shadow model
+    # Step 2: Construct Attack datasets
     print("11111111111")
-    train_in_y = get_probabilities(shadowmodel, train_in_loader)
-    train_out_y = get_probabilities(shadowmodel, train_out_loader)
-    train_in_y = train_in_y[:, :3]
-    train_out_y = train_out_y[:, :3] 
-    print("22222222222")
+    train_in_y, train_in_indices = get_top_n_probabilities(shadowmodel, train_in_loader)
+    train_out_y, train_out_indices = get_top_n_probabilities(shadowmodel, train_out_loader)
 
     # Create labels and Combine the two datasets
     train_in_labels = torch.ones(train_in_y.size(0), dtype=torch.long)  # Label 1 for train_in
@@ -129,13 +143,14 @@ def main():
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
     train_target_model(test_in_loader, target_model, criterion, optimizer, args.num_epochs)
 
-    # get prob of test_in  
-    test_in_probs = get_probabilities(target_model, test_in_loader)
-    test_in_probs = test_in_probs[:, :3]  # Get top 3 probabilities
-
-    # get prob of test_out
-    test_out_probs = get_probabilities(target_model, test_out_loader)
-    test_out_probs = test_out_probs[:, :3]  # Get top 3 probabilities
+    test_in_probs, train_in_indices = get_top_n_probabilities(target_model, test_in_loader)
+    test_out_probs, train_out_indices = get_top_n_probabilities(target_model, test_out_loader)
+    # # get prob of test_in
+    # test_in_probs = get_probabilities(target_model, test_in_loader)
+    # test_in_probs = test_in_probs[:, :3]  # Get top 3 probabilities
+    # # get prob of test_out
+    # test_out_probs = get_probabilities(target_model, test_out_loader)
+    # test_out_probs = test_out_probs[:, :3]  # Get top 3 probabilities
 
     combined_probs = torch.cat((test_in_probs, test_out_probs), dim=0)
     with torch.no_grad():
