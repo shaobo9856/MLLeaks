@@ -119,7 +119,7 @@ def main():
     # Step 3: Attack Model Training on the combined attack dataset
     attack_model = ImprovedAttackModel(input_size=combined_y.size(1))  # AttackModel / 128 / Assuming input_size is the number of features
     attack_criterion = torch.nn.CrossEntropyLoss()
-    attack_optimizer = optim.Adam(attack_model.parameters(), lr=0.001)
+    attack_optimizer = optim.Adam(attack_model.parameters(), lr=0.001, weight_decay=1e-5)
     print("555555555")
     train_target_model(attack_loader, attack_model, attack_criterion, attack_optimizer, args.num_epochs)
 

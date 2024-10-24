@@ -56,20 +56,26 @@ class AttackModel(nn.Module):
 class ImprovedAttackModel(nn.Module):
     def __init__(self, input_size):
         super(ImprovedAttackModel, self).__init__()
-        self.fc1 = nn.Linear(input_size, 128)
-        self.bn1 = nn.BatchNorm1d(128)
+        self.fc1 = nn.Linear(input_size, 256)
+        self.bn1 = nn.BatchNorm1d(256)
         self.dropout1 = nn.Dropout(0.5)
 
-        self.fc2 = nn.Linear(128, 64)
-        self.bn2 = nn.BatchNorm1d(64)
+        self.fc2 = nn.Linear(256, 128)
+        self.bn2 = nn.BatchNorm1d(128)
         self.dropout2 = nn.Dropout(0.5)
 
-        self.fc3 = nn.Linear(64, 2)
+        self.fc3 = nn.Linear(128, 64)
+        self.bn3 = nn.BatchNorm1d(64)
+        self.dropout3 = nn.Dropout(0.5)
+
+        self.fc4 = nn.Linear(64, 2)
 
     def forward(self, x):
-        x = F.relu(self.bn1(self.fc1(x)))
+        x = F.leaky_relu(self.bn1(self.fc1(x)), negative_slope=0.01)
         x = self.dropout1(x)
-        x = F.relu(self.bn2(self.fc2(x)))
+        x = F.leaky_relu(self.bn2(self.fc2(x)), negative_slope=0.01)
         x = self.dropout2(x)
-        x = self.fc3(x)
+        x = F.leaky_relu(self.bn3(self.fc3(x)), negative_slope=0.01)
+        x = self.dropout3(x)
+        x = self.fc4(x)
         return x

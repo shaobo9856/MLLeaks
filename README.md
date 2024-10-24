@@ -13,11 +13,11 @@ pip install -r requirements.txt
 
 #### For MNIST dataset: 
 
-python3 main.py --dataset MNIST --num_epochs 5 --batch_size 64
+python3 main.py --dataset MNIST --num_epochs 15 --batch_size 64
 
 #### For CIFAR10 dataset: 
 
-python3 main.py --dataset CIFAR10 --num_epochs 5 --batch_size 100
+python3 main.py --dataset CIFAR10 --num_epochs 15 --batch_size 100
 
 
 
