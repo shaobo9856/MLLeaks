@@ -75,7 +75,7 @@ def main():
     args = parser.parse_args()
     print(f'Dataset: {args.dataset}')
     
-    # Step 0: Split the data into DShadow_train and DShadow_out
+    # Step 0: Split the data into train_in_loader, train_out_loader,test_in_loader,test_out_loader
     if args.dataset == 'CIFAR10':
         num_classes = 10
         is_cifar = True
@@ -87,7 +87,7 @@ def main():
     else:
         raise ValueError('Invalid dataset name')
 
-    # Step 1: Train the Shadow model on DShadow_train
+    # Step 1: Train the Shadow model on train_in dataset
     shadowmodel = ShadowModel(num_classes=num_classes, is_cifar=is_cifar)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
@@ -96,17 +96,17 @@ def main():
     # Step 2: Construct Attact datasets
     # Get the top 3 probabilities from the shadow model
     print("11111111111")
-    DShadow_train_y = get_probabilities(shadowmodel, train_in_loader)
-    DShadow_out_y = get_probabilities(shadowmodel, train_out_loader)
-    DShadow_train_y = DShadow_train_y[:, :3]  # get top 3 probabilities for DShadow_train
-    DShadow_out_y = DShadow_out_y[:, :3]  # get top 3 probabilities for DShadow_out
+    train_in_y = get_probabilities(shadowmodel, train_in_loader)
+    train_out_y = get_probabilities(shadowmodel, train_out_loader)
+    train_in_y = train_in_y[:, :3]  # get top 3 probabilities for DShadow_train
+    train_out_y = train_out_y[:, :3]  # get top 3 probabilities for DShadow_out
     print("22222222222")
 
     # Create labels and Combine the two datasets
-    DShadow_train_labels = torch.ones(DShadow_train_y.size(0), dtype=torch.long)  # Label 1 for DShadow_train
-    DShadow_out_labels = torch.zeros(DShadow_out_y.size(0), dtype=torch.long)  # Label 0 for DShadow_out
-    combined_y = torch.cat((DShadow_train_y, DShadow_out_y), dim=0)
-    combined_labels = torch.cat((DShadow_train_labels, DShadow_out_labels), dim=0)
+    train_in_labels = torch.ones(train_in_y.size(0), dtype=torch.long)  # Label 1 for train_in
+    train_out_labels = torch.zeros(train_out_y.size(0), dtype=torch.long)  # Label 0 for train_out
+    combined_y = torch.cat((train_in_y, train_out_y), dim=0)
+    combined_labels = torch.cat((train_in_labels, train_out_labels), dim=0)
     print("333333333")
 
     # Prepare attack dataset for attack model training
