@@ -2,7 +2,7 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from model import ShadowModel, AttackModel
+from model import ShadowModel, AttackModel, ImprovedAttackModel
 import torch.optim as optim
 import torch.nn.functional as F
 
@@ -25,12 +25,12 @@ def load_data(dataset_name, batch_size):
         test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
     # For train_dataset
-    train_size = int(0.8 * len(train_dataset))  # 80% for training
+    train_size = int(0.5 * len(train_dataset))  # 80% for training
     out_size = len(train_dataset) - train_size  # 20% for out-of-training
     train_in, train_out = torch.utils.data.random_split(train_dataset, [train_size, out_size])
 
     # For test_dataset
-    test_size = int(0.8 * len(test_dataset))  # 80% for testing
+    test_size = int(0.6 * len(test_dataset))  # 80% for testing
     test_out_size = len(test_dataset) - test_size  # 20% for out-of-testing
     test_in, test_out = torch.utils.data.random_split(test_dataset, [test_size, test_out_size])
 
@@ -48,7 +48,8 @@ def train_target_model(train_loader, model, criterion, optimizer, num_epochs):
         for inputs, targets in train_loader:
             optimizer.zero_grad()
             outputs = model(inputs)
-            print(f'Inputs shape: {inputs.shape}, Targets shape: {targets.shape}, Outputs shape: {outputs.shape}')
+            probabilities = F.softmax(outputs, dim=1)
+            print(f'Probabilities: {probabilities}')  # 打印输出的概率
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
@@ -63,6 +64,7 @@ def get_probabilities(model, data_loader):
         for inputs, _ in data_loader:
             outputs = model(inputs)
             probabilities = F.softmax(outputs, dim=1)
+            print(f'Probabilities shape: {probabilities.shape}, Values: {probabilities}')  # 打印概率
             all_probs.append(probabilities)
 
     return torch.cat(all_probs, dim=0)  # 合并所有批次的概率
@@ -88,7 +90,7 @@ def main():
         raise ValueError('Invalid dataset name')
 
     # Step 1: Train the Shadow model on train_in dataset
-    shadowmodel = ShadowModel(num_classes=num_classes, is_cifar=is_cifar)
+    shadowmodel = ShadowModel(num_classes=num_classes) # , is_cifar=is_cifar
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
     train_target_model(train_in_loader, shadowmodel, criterion, optimizer, args.num_epochs)
@@ -98,8 +100,8 @@ def main():
     print("11111111111")
     train_in_y = get_probabilities(shadowmodel, train_in_loader)
     train_out_y = get_probabilities(shadowmodel, train_out_loader)
-    train_in_y = train_in_y[:, :3]  # get top 3 probabilities for DShadow_train
-    train_out_y = train_out_y[:, :3]  # get top 3 probabilities for DShadow_out
+    train_in_y = train_in_y[:, :3]
+    train_out_y = train_out_y[:, :3] 
     print("22222222222")
 
     # Create labels and Combine the two datasets
@@ -115,14 +117,14 @@ def main():
     print("44444444")
 
     # Step 3: Attack Model Training on the combined attack dataset
-    attack_model = AttackModel(input_size=combined_y.size(1))  # 128 / Assuming input_size is the number of features
+    attack_model = ImprovedAttackModel(input_size=combined_y.size(1))  # AttackModel / 128 / Assuming input_size is the number of features
     attack_criterion = torch.nn.CrossEntropyLoss()
     attack_optimizer = optim.Adam(attack_model.parameters(), lr=0.001)
     print("555555555")
     train_target_model(attack_loader, attack_model, attack_criterion, attack_optimizer, args.num_epochs)
 
     # Step 4: Evaluate the attack model on the test set
-    target_model =  ShadowModel(num_classes=num_classes, is_cifar=is_cifar)
+    target_model =  ShadowModel(num_classes=num_classes) #, is_cifar=is_cifar
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
     train_target_model(test_in_loader, target_model, criterion, optimizer, args.num_epochs)
@@ -135,21 +137,27 @@ def main():
     test_out_probs = get_probabilities(target_model, test_out_loader)
     test_out_probs = test_out_probs[:, :3]  # Get top 3 probabilities
 
+    combined_probs = torch.cat((test_in_probs, test_out_probs), dim=0)
     with torch.no_grad():
-        attack_outputs_in = attack_model(test_in_probs)
-        attack_outputs_out = attack_model(test_out_probs)
+        attack_outputs_combined = attack_model(combined_probs)
+        _, predicted_labels = torch.max(attack_outputs_combined, dim=1)
+        probabilities = F.softmax(attack_outputs_combined, dim=1)
+        print(f'Attack model probabilities: {probabilities}')  # 打印攻击模型的概率
 
-        # Get the predicted labels for test_in and test_out
-        _, predicted_labels_in = torch.max(attack_outputs_in, dim=1)
-        _, predicted_labels_out = torch.max(attack_outputs_out, dim=1)
-
-    # true labels from test_in (all should be 1) and test_out (all should be 0)
-    true_labels_in = torch.ones(predicted_labels_in.size(0), dtype=torch.long) 
-    true_labels_out = torch.zeros(predicted_labels_out.size(0), dtype=torch.long)
-
-    # Combine results for accuracy calculation
-    predicted_labels = torch.cat((predicted_labels_in, predicted_labels_out))
+    # true labels from test_in (all should be 1) and test_out (all should be 0)  then combine
+    true_labels_in = torch.ones(test_in_probs.size(0), dtype=torch.long) 
+    true_labels_out = torch.zeros(test_out_probs.size(0), dtype=torch.long)
     true_labels = torch.cat((true_labels_in, true_labels_out))
+
+    # predicted_labels 写入到 predicted_labels.txt
+    with open("predicted_labels.txt", "w") as pred_file:
+        for label in predicted_labels.tolist():
+            pred_file.write(f"{label}")
+
+    # true_labels 写入到 true_labels.txt
+    with open("true_labels.txt", "w") as true_file:
+        for label in true_labels.tolist():
+            true_file.write(f"{label}")
 
     # Calculate accuracy
     accuracy = (predicted_labels == true_labels).float().mean().item() * 100
