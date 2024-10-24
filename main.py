@@ -2,7 +2,7 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from model import ShadowModel, AttackModel, ImprovedAttackModel
+from model import ShadowModel, AttackModel, ImprovedAttackModel,ImprovedShadowModel
 import torch.optim as optim
 import torch.nn.functional as F
 
@@ -90,7 +90,7 @@ def main():
         raise ValueError('Invalid dataset name')
 
     # Step 1: Train the Shadow model on train_in dataset
-    shadowmodel = ShadowModel(num_classes=num_classes) # , is_cifar=is_cifar
+    shadowmodel = ImprovedShadowModel(num_classes=num_classes, is_cifar=is_cifar) #ImprovedShadowModel
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
     train_target_model(train_in_loader, shadowmodel, criterion, optimizer, args.num_epochs)
@@ -124,7 +124,7 @@ def main():
     train_target_model(attack_loader, attack_model, attack_criterion, attack_optimizer, args.num_epochs)
 
     # Step 4: Evaluate the attack model on the test set
-    target_model =  ShadowModel(num_classes=num_classes) #, is_cifar=is_cifar
+    target_model =  ImprovedShadowModel(num_classes=num_classes, is_cifar=is_cifar) #ImprovedShadowModel
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.Adam(shadowmodel.parameters(), lr=0.001)
     train_target_model(test_in_loader, target_model, criterion, optimizer, args.num_epochs)
